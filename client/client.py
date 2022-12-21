@@ -3,59 +3,59 @@ import os
 import time
 
 import grpc
-
-import protos.file_pb2 as file_pb2
-import protos.file_pb2_grpc as file_pb2_grpc
+from time import time
+import file_pb2 as file_pb2
+import file_pb2_grpc as file_pb2_grpc
 
 logger = logging.getLogger(__name__)
 
+UPLOAD_BLOCK_SIZE = 1024*1024*2 
+
 class FileClient:
-  def __init__(self, ip_address, port, cert_file):
+  def __init__(self, ip_address, port,trusted_cert=None):
     self.__ip_address = ip_address
     self.__port = port
-    self.__cert_file = cert_file
 
-    with open(self.__cert_file, "rb") as fh:
-      trusted_cert = fh.read()
-
-    credentials = grpc.ssl_channel_credentials(root_certificates=trusted_cert)
-    channel = grpc.secure_channel("{}:{}"
-      .format(self.__ip_address, self.__port), credentials)
+    # credentials = grpc.ssl_channel_credentials(root_certificates=trusted_cert)
+    # channel = grpc.secure_channel("{}:{}"
+    #   .format(self.__ip_address, self.__port), credentials)
+    
+    channel = grpc.insecure_channel(f"{ip_address}:{port}")
     self.stub = file_pb2_grpc.FileStub(channel)
+    self.channel=channel
 
-    logger.info("created instance " + str(self))
 
-  def list(self):
-    logger.info("downloading files list from server")
-    response_stream = self.stub.list(file_pb2.ListReq())
-    self.__list_files(response_stream)
+  def uploadSetName(self,filename,full_file_name):
+    return self.stub.uploadSetName(file_pb2.FileSetNameReq(name=filename,filesize=os.path.getsize(full_file_name)))
 
-  def download(self, file_name, out_file_name, out_file_dir):
-    logger.info("downloading file:{file_name} to {out_file_dir}/{out_file_name}"
-      .format(
-        file_name=file_name,
-        out_file_dir=out_file_dir,
-        out_file_name=out_file_name))
-    response_stream = self.stub.download(file_pb2.FileDownloadReq(name=file_name))
-    self.__download_file(response_stream, out_file_name, out_file_dir)
+  def upload(self,full_file_name,progressCallback=None):
+    return self.stub.upload(self._upload(full_file_name,progressCallback))
 
-  def __download_file(self, response_stream, out_file_name, out_file_dir):
-    try:
-      with open(out_file_dir + "/" + out_file_name, "wb") as fh:
-          for response in response_stream:
-            fh.write(response.buffer)
-    except grpc.RpcError as e:
-      status_code = e.code()
-      logger.error("Error details: {}, status name: {}, status value: {}"
-        .format(e.details(), status_code.name, status_code.value))
+  def _upload(self,full_file_name,progressCallback):
+    filesize = os.path.getsize(full_file_name)
+    uplaodedSize = 0
+    t = time()
+    if os.path.isfile(full_file_name):
+      with open(full_file_name, "rb") as fh:
+        while True:
+          piece = fh.read(UPLOAD_BLOCK_SIZE)
+          if len(piece) == 0:
+            break
+          
+          yield file_pb2.FileUploadReq(buffer=piece)
+          uplaodedSize+=UPLOAD_BLOCK_SIZE
+          print(f'speed:{uplaodedSize/1024/1024/(time()-t)}MB/s')
+          if progressCallback:
+            progressCallback(filesize,uplaodedSize)
+            pass
+    else:
+      yield file_pb2.FileUploadReq()
 
-  def __list_files(self, response_stream):
-    for response in response_stream:
-      print("file name: {}, size: {} bytes".format(response.name, response.size))
-
-  def __str__(self):
-    return "ip:{ip_address}, port:{port}, cert_file:{cert_file}"\
-      .format(
-        ip_address=self.__ip_address,
-        port=self.__port,
-        cert_file=self.__cert_file)
+  # def __str__(self):
+  #   return "ip:{ip_address}, port:{port}, cert_file:{cert_file}"\
+  #     .format(
+  #       ip_address=self.__ip_address,
+  #       port=self.__port,
+  #       cert_file=self.__cert_file)
+  def close(self):
+    self.channel.close()

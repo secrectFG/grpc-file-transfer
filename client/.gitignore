@@ -1,0 +1,8 @@
+/test.txt
+*_pb2_grpc.py
+*_pb2.py
+config.json
+*.exe
+build
+dist
+/main.spec

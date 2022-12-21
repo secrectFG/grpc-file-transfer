@@ -1,0 +1,8 @@
+/main.spec
+/server.spec
+/test.txt
+*_pb2_grpc.py
+*_pb2.py
+*.exe
+build
+dist

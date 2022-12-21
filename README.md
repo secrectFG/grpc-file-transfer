@@ -1,5 +1,7 @@
 # grpc-file-transfer
 
+SSL太麻烦已经暂时关掉了，现在可以上传文件到服务器并执行上传的文件，客户端提供了界面
+
 SSL secured file transfer gRPC client and server written in Python language.
 
 ### Project structure
