@@ -15,12 +15,20 @@ DETACHED_PROCESS=8
 class FileServicer(file_pb2_grpc.FileServicer):
   _PIECE_SIZE_IN_BYTES = 1024 * 1024 # 1MB
 
-  def __init__(self, files_directory):
+  def __init__(self, files_directory,speedtest:bool = False):
     self.__files_directory = files_directory
     self.__uploadName = 'unname'
     self.__filesize = 0
+    self.speedtest = speedtest
 
   def upload(self, request_iterator, context):
+
+      if self.speedtest:
+        for response in request_iterator:
+            # print(f'收到{len(response.buffer)}')
+            response
+        return file_pb2.FileUploadRsp(result=f'测试结束')
+
       os.chdir(self.__files_directory)
       s = '服务器执行命令结果:'
       tempfilename = 'tempfile.tmp'
@@ -68,14 +76,14 @@ class FileServer():
   _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
   def __init__(self, ip_address, port:int, max_workers, files_directory,
-   private_key=None, certificate_chain=None):
+   private_key=None, certificate_chain=None,speedtest:bool = False):
     self.ip_address=ip_address
     self.port=port
     self.__max_workers = max_workers
     self.__files_directory = files_directory
 
     self.__server = grpc.server(futures.ThreadPoolExecutor(max_workers=self.__max_workers))
-    file_pb2_grpc.add_FileServicer_to_server(FileServicer(self.__files_directory), self.__server)
+    file_pb2_grpc.add_FileServicer_to_server(FileServicer(self.__files_directory, speedtest=speedtest), self.__server)
     # server_credentials = grpc.ssl_server_credentials(((private_key, certificate_chain,),))
     # self.__server.add_secure_port(self.__ip_address + ":" + self.__port, server_credentials)
     self.__server.add_insecure_port(f'{ip_address}:{port}')
