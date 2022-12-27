@@ -40,7 +40,7 @@ def main():
   #   port:{args.port}, \
   #   files_directory:{args.files_directory},")
 
-  print(f'args:{args}')
+  logger.info(f'args:{args}')
 
 
 
